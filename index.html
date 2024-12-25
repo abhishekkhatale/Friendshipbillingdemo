@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billing System with Admin Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 5px;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .form-group, .button-container {
+            margin-bottom: 15px;
+        }
+        .form-group label, .button-container {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 15px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #555;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .toggle-btn {
+            display: block;
+            margin: 20px auto;
+            font-size: 16px;
+        }
+        .bill-container {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="billing-system">
+        <h1>Billing System</h1>
+        <div class="form-group">
+            <label for="name">Customer Name:</label>
+            <input type="text" id="name" placeholder="Enter customer name" required>
+        </div>
+        <div class="form-group">
+            <label for="phone">Phone Number (Optional):</label>
+            <input type="text" id="phone" placeholder="Enter phone number">
+        </div>
+        <div class="form-group">
+            <label for="product">Product:</label>
+            <select id="product">
+                <option value="Fried Rice">Fried Rice - ₹150</option>
+                <option value="Noodles">Noodles - ₹120</option>
+                <option value="Burger">Burger - ₹100</option>
+            </select>
+        </div>
+        <button class="btn" onclick="addToBill()">Add to Bill</button>
+        <h2>Final Bill</h2>
+        <table id="bill-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Price (₹)</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div class="button-container">
+            <button class="btn" onclick="saveBill()">Save Bill</button>
+            <button class="btn toggle-btn" onclick="toggleView()">Switch to Admin Panel</button>
+        </div>
+    </div>
+
+    <div class="container" id="admin-panel" style="display: none;">
+        <h1>Admin Panel</h1>
+        <div id="bills-container"></div>
+        <button class="btn toggle-btn" onclick="toggleView()">Switch to Billing System</button>
+    </div>
+
+    <div class="container" id="print-bill" style="display: none;">
+        <h1>Bill Details</h1>
+        <div id="bill-details"></div>
+        <button class="btn" onclick="window.print()">Print Bill</button>
+        <button class="btn" onclick="toggleView()">Back to Billing System</button>
+    </div>
+
+    <script>
+        let bill = [];
+        let currentView = 'billing';
+
+        function addToBill() {
+            const productElement = document.getElementById("product");
+            const selectedProduct = productElement.value;
+            const price = parseInt(productElement.options[productElement.selectedIndex].text.split("₹")[1]);
+
+            bill.push({ product: selectedProduct, price });
+            updateBillTable();
+        }
+
+        function updateBillTable() {
+            const tbody = document.getElementById("bill-table").querySelector("tbody");
+            tbody.innerHTML = bill.map((item, index) => `
+                <tr>
+                    <td>${item.product}</td>
+                    <td>${item.price}</td>
+                    <td><button onclick="deleteProduct(${index})">Delete</button></td>
+                </tr>
+            `).join("");
+        }
+
+        function deleteProduct(index) {
+            bill.splice(index, 1);
+            updateBillTable();
+        }
+
+        function saveBill() {
+            const name = document.getElementById("name").value.trim();
+            const phone = document.getElementById("phone").value.trim();
+
+            if (!name) {
+                alert("Customer name is required!");
+                return;
+            }
+
+            const newBill = { name, phone, items: [...bill] };
+            const allBills = JSON.parse(localStorage.getItem("bills")) || [];
+            allBills.push(newBill);
+            localStorage.setItem("bills", JSON.stringify(allBills));
+
+            localStorage.setItem("currentBill", JSON.stringify(newBill));
+            toggleView('print');
+        }
+
+        function toggleView(target = currentView === 'billing' ? 'admin' : 'billing') {
+            document.getElementById("billing-system").style.display = target === 'billing' ? 'block' : 'none';
+            document.getElementById("admin-panel").style.display = target === 'admin' ? 'block' : 'none';
+            document.getElementById("print-bill").style.display = target === 'print' ? 'block' : 'none';
+
+            if (target === 'admin') loadBills();
+            if (target === 'print') loadPrintBill();
+
+            currentView = target;
+        }
+
+        function loadBills() {
+            const bills = JSON.parse(localStorage.getItem("bills")) || [];
+            document.getElementById("bills-container").innerHTML = bills.map(bill => `
+                <div class="bill-container">
+                    <p><strong>Name:</strong> ${bill.name}</p>
+                    <p><strong>Phone:</strong> ${bill.phone || 'N/A'}</p>
+                    <table>
+                        <thead>
+                            <tr><th>Product</th><th>Price (₹)</th></tr>
+                        </thead>
+                        <tbody>
+                            ${bill.items.map(item => `<tr><td>${item.product}</td><td>${item.price}</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `).join('');
+        }
+
+        function loadPrintBill() {
+            const bill = JSON.parse(localStorage.getItem("currentBill"));
+            document.getElementById("bill-details").innerHTML = `
+                <p><strong>Name:</strong> ${bill.name}</p>
+                <p><strong>Phone:</strong> ${bill.phone || 'N/A'}</p>
+                <table>
+                    <thead>
+                        <tr><th>Product</th><th>Price (₹)</th></tr>
+                    </thead>
+                    <tbody>
+                        ${bill.items.map(item => `<tr><td>${item.product}</td><td>${item.price}</td></tr>`).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr><th>Total</th><th>₹${bill.items.reduce((total, item) => total + item.price, 0)}</th></tr>
+                    </tfoot>
+                </table>
+            `;
+        }
+    </script>
+</body>
+</html>
